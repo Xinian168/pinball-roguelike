@@ -1,0 +1,247 @@
+[gd_scene load_steps=24 format=3]
+
+[ext_resource type="Script" path="res://scripts/launcher.gd" id="1_launcher"]
+[ext_resource type="Script" path="res://scripts/peg_board.gd" id="2_pegboard"]
+[ext_resource type="Script" path="res://scripts/round_controller.gd" id="3_round_controller"]
+[ext_resource type="Script" path="res://scripts/pocket.gd" id="4_pocket"]
+[ext_resource type="Script" path="res://scripts/normal_zone.gd" id="5_normalzone"]
+[ext_resource type="Script" path="res://scripts/hud.gd" id="6_hud"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_wall_v"]
+size = Vector2(20, 1080)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_wall_h"]
+size = Vector2(1920, 20)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_floor"]
+size = Vector2(1920, 40)
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_floor"]
+friction = 0.1
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_ball_template"]
+radius = 15.0
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_ball_template"]
+friction = 0.2
+bounce = 0.6
+
+[sub_resource type="Gradient" id="Gradient_launcher"]
+offsets = PackedFloat32Array(0, 0.5, 1)
+colors = PackedColorArray(0.55, 0.55, 0.6, 1, 0.55, 0.55, 0.6, 1, 0.55, 0.55, 0.6, 0)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_launcher"]
+gradient = SubResource("Gradient_launcher")
+width = 40
+height = 40
+fill = 1
+fill_from = Vector2(0.5, 0.5)
+fill_to = Vector2(1, 0.5)
+
+[sub_resource type="Gradient" id="Gradient_ball"]
+offsets = PackedFloat32Array(0, 0.45, 0.75, 1)
+colors = PackedColorArray(0.55, 0.85, 1, 1, 0.3, 0.65, 0.95, 1, 0.16, 0.42, 0.75, 1, 0.1, 0.3, 0.6, 0)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_ball"]
+gradient = SubResource("Gradient_ball")
+width = 40
+height = 40
+fill = 1
+fill_from = Vector2(0.5, 0.5)
+fill_to = Vector2(1, 0.5)
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_pocket"]
+radius = 50.0
+
+[sub_resource type="Gradient" id="Gradient_pocket"]
+offsets = PackedFloat32Array(0, 0.85, 1)
+colors = PackedColorArray(0.45, 0.9, 1, 0.9, 0.45, 0.9, 1, 0.9, 0.2, 0.6, 0.9, 0)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_pocket"]
+gradient = SubResource("Gradient_pocket")
+width = 100
+height = 100
+fill = 1
+fill_from = Vector2(0.5, 0.5)
+fill_to = Vector2(1, 0.5)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_nz1"]
+size = Vector2(430, 30)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_nz2"]
+size = Vector2(380, 30)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_nz3"]
+size = Vector2(380, 30)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_nz4"]
+size = Vector2(430, 30)
+
+[node type="Node2D" name="Main"]
+
+; ===== 黑色背景 =====
+[node type="ColorRect" name="Background" parent="."]
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 1920.0
+offset_bottom = 1080.0
+color = Color(0, 0, 0, 1)
+
+; ===== Floor（隐形地面，球落上去停留） =====
+[node name="Floor" type="StaticBody2D" parent="."]
+position = Vector2(960, 1080)
+physics_material_override = SubResource("PhysicsMaterial_floor")
+
+[node name="Shape" type="CollisionShape2D" parent="Floor"]
+shape = SubResource("RectangleShape2D_floor")
+
+; ===== BallTemplate（球模板，freeze + 隐藏，不参与游戏） =====
+[node name="BallTemplate" type="RigidBody2D" parent="."]
+freeze = true
+visible = false
+physics_material_override = SubResource("PhysicsMaterial_ball_template")
+
+[node name="Shape" type="CollisionShape2D" parent="BallTemplate"]
+shape = SubResource("CircleShape2D_ball_template")
+
+[node name="Visual" type="Sprite2D" parent="BallTemplate"]
+texture = SubResource("GradientTexture2D_ball")
+
+; ===== 隐形边墙（物理反弹，视觉不可见） =====
+[node name="LeftWall" type="StaticBody2D" parent="."]
+position = Vector2(10, 540)
+
+[node name="Shape" type="CollisionShape2D" parent="LeftWall"]
+shape = SubResource("RectangleShape2D_wall_v")
+
+[node name="RightWall" type="StaticBody2D" parent="."]
+position = Vector2(1910, 540)
+
+[node name="Shape" type="CollisionShape2D" parent="RightWall"]
+shape = SubResource("RectangleShape2D_wall_v")
+
+[node name="Ceiling" type="StaticBody2D" parent="."]
+position = Vector2(960, 10)
+
+[node name="Shape" type="CollisionShape2D" parent="Ceiling"]
+shape = SubResource("RectangleShape2D_wall_h")
+
+; ===== 白色图钉阵（运行时生成） =====
+[node name="PegBoard" type="Node2D" parent="."]
+script = ExtResource("2_pegboard")
+
+; ===== 发射器（底部右侧，鼠标瞄准 + 蓄力） =====
+[node name="Launcher" type="Node2D" parent="."]
+position = Vector2(1600, 900)
+script = ExtResource("1_launcher")
+ball_template = NodePath("../BallTemplate")
+
+[node name="Visual" type="Sprite2D" parent="Launcher"]
+texture = SubResource("GradientTexture2D_launcher")
+
+; ===== 一局规则管理（v2 数值见 docs/bible/03_rules.md） =====
+[node name="RoundController" type="Node" parent="."]
+script = ExtResource("3_round_controller")
+
+; ===== 奖励袋洞（球进入 → 库存 +reward_balls） =====
+[node name="Pockets" type="Node2D" parent="."]
+
+[node name="Pocket1" type="Area2D" parent="Pockets"]
+position = Vector2(480, 1035)
+script = ExtResource("4_pocket")
+
+[node name="Shape" type="CollisionShape2D" parent="Pockets/Pocket1"]
+shape = SubResource("CircleShape2D_pocket")
+
+[node name="Visual" type="Sprite2D" parent="Pockets/Pocket1"]
+texture = SubResource("GradientTexture2D_pocket")
+
+[node name="Pocket2" type="Area2D" parent="Pockets"]
+position = Vector2(960, 1035)
+script = ExtResource("4_pocket")
+
+[node name="Shape" type="CollisionShape2D" parent="Pockets/Pocket2"]
+shape = SubResource("CircleShape2D_pocket")
+
+[node name="Visual" type="Sprite2D" parent="Pockets/Pocket2"]
+texture = SubResource("GradientTexture2D_pocket")
+
+[node name="Pocket3" type="Area2D" parent="Pockets"]
+position = Vector2(1440, 1035)
+script = ExtResource("4_pocket")
+
+[node name="Shape" type="CollisionShape2D" parent="Pockets/Pocket3"]
+shape = SubResource("CircleShape2D_pocket")
+
+[node name="Visual" type="Sprite2D" parent="Pockets/Pocket3"]
+texture = SubResource("GradientTexture2D_pocket")
+
+; ===== 底部普通区域（v2：仅清理，不再扣库存） =====
+[node name="NormalZone" type="Area2D" parent="."]
+script = ExtResource("5_normalzone")
+
+[node name="Shape1" type="CollisionShape2D" parent="NormalZone"]
+position = Vector2(215, 1055)
+shape = SubResource("RectangleShape2D_nz1")
+
+[node name="Shape2" type="CollisionShape2D" parent="NormalZone"]
+position = Vector2(720, 1055)
+shape = SubResource("RectangleShape2D_nz2")
+
+[node name="Shape3" type="CollisionShape2D" parent="NormalZone"]
+position = Vector2(1200, 1055)
+shape = SubResource("RectangleShape2D_nz3")
+
+[node name="Shape4" type="CollisionShape2D" parent="NormalZone"]
+position = Vector2(1705, 1055)
+shape = SubResource("RectangleShape2D_nz4")
+
+; ===== 白盒 HUD =====
+[node name="Hud" type="CanvasLayer" parent="."]
+script = ExtResource("6_hud")
+
+[node name="BallCountLabel" type="Label" parent="Hud"]
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 500.0
+offset_bottom = 60.0
+theme_override_font_sizes/font_size = 32
+text = "球数: 50 / 60"
+
+[node name="TimerLabel" type="Label" parent="Hud"]
+offset_left = 1620.0
+offset_top = 20.0
+offset_right = 1900.0
+offset_bottom = 60.0
+theme_override_font_sizes/font_size = 32
+text = "90.0 s"
+
+[node name="SettleButton" type="Button" parent="Hud"]
+offset_left = 20.0
+offset_top = 990.0
+offset_right = 160.0
+offset_bottom = 1040.0
+text = "结算"
+
+[node name="SettlePanel" type="Control" parent="Hud"]
+visible = false
+offset_left = 560.0
+offset_top = 440.0
+offset_right = 1360.0
+offset_bottom = 640.0
+
+[node name="SettleResultLabel" type="Label" parent="Hud/SettlePanel"]
+offset_left = 0.0
+offset_top = 20.0
+offset_right = 800.0
+offset_bottom = 100.0
+theme_override_font_sizes/font_size = 48
+horizontal_alignment = 1
+text = ""
+
+[node name="SettleActionButton" type="Button" parent="Hud/SettlePanel"]
+offset_left = 300.0
+offset_top = 130.0
+offset_right = 500.0
+offset_bottom = 180.0
+text = "继续"
